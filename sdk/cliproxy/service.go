@@ -970,6 +970,11 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 							UserDefined: true,
 						})
 					}
+					if len(ms) == 0 && compat.AutoDiscoverModels {
+						if discovered := registry.GetGlobalRegistry().GetModelsForClient("upstream-sync:" + compat.Name); len(discovered) > 0 {
+							ms = discovered
+						}
+					}
 					// Register and return
 					if len(ms) > 0 {
 						if providerKey == "" {
