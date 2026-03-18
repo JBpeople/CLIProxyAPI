@@ -102,3 +102,9 @@ GOOS=windows GOARCH=amd64 go build -o build/cliproxyapi.exe ./cmd/server
 ## 许可证
 
 MIT
+
+
+## 配套前端截图
+
+![模型同步页面](./assets/model-sync-page.jpg)
+

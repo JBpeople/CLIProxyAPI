@@ -70,6 +70,10 @@ GET  /v0/management/model-sync/status
 POST /v0/management/model-sync/run
 ```
 
+## 配套前端截图
+
+![模型同步页面](./assets/model-sync-page.jpg)
+
 ## 配套前端仓库
 
 这个 fork 对应的前端面板在这里：
