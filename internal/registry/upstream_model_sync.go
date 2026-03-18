@@ -21,7 +21,7 @@ type UpstreamModelSource struct {
 	Name     string
 	Provider string
 	BaseURL  string
-	APIKey   string
+	APIKeys  []string
 	Headers  map[string]string
 	Timeout  time.Duration
 }
@@ -191,16 +191,20 @@ func BuildUpstreamSourcesFromConfig(cfg *cfgpkg.Config) []UpstreamModelSource {
 		if baseURL == "" {
 			continue
 		}
-		apiKey := ""
-		if len(entry.APIKeyEntries) > 0 {
-			apiKey = strings.TrimSpace(entry.APIKeyEntries[0].APIKey)
+		apiKeys := make([]string, 0, len(entry.APIKeyEntries))
+		for _, keyEntry := range entry.APIKeyEntries {
+			key := strings.TrimSpace(keyEntry.APIKey)
+			if key == "" {
+				continue
+			}
+			apiKeys = append(apiKeys, key)
 		}
 		out = append(out, UpstreamModelSource{
 			ID:       strings.TrimSpace(entry.Name),
 			Name:     strings.TrimSpace(entry.Name),
 			Provider: "openai-compat",
 			BaseURL:  baseURL,
-			APIKey:   apiKey,
+			APIKeys:  apiKeys,
 			Headers:  cloneHeaders(entry.Headers),
 			Timeout:  defaultUpstreamModelSyncTimeout,
 		})
@@ -243,48 +247,63 @@ type openAIModelsResponse struct {
 
 func (a *OpenAICompatAdapter) DiscoverModels(ctx context.Context, src UpstreamModelSource) ([]*ModelInfo, error) {
 	url := strings.TrimRight(src.BaseURL, "/") + "/models"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if src.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+src.APIKey)
-	}
-	for k, v := range src.Headers {
-		if strings.EqualFold(k, "authorization") && src.APIKey != "" {
-			continue
-		}
-		req.Header.Set(k, v)
+	apiKeys := src.APIKeys
+	if len(apiKeys) == 0 {
+		apiKeys = []string{""}
 	}
 	client := &http.Client{Timeout: src.Timeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("discover models failed: status=%d", resp.StatusCode)
-	}
-	var out openAIModelsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, err
-	}
-	models := make([]*ModelInfo, 0, len(out.Data))
-	seen := make(map[string]struct{}, len(out.Data))
-	for _, item := range out.Data {
-		id := strings.TrimSpace(item.ID)
-		if id == "" {
+	merged := make([]*ModelInfo, 0)
+	seen := make(map[string]struct{})
+	var errs []string
+	for _, apiKey := range apiKeys {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+		for k, v := range src.Headers {
+			if strings.EqualFold(k, "authorization") && apiKey != "" {
+				continue
+			}
+			req.Header.Set(k, v)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			errs = append(errs, err.Error())
 			continue
 		}
-		if _, ok := seen[id]; ok {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			resp.Body.Close()
+			errs = append(errs, fmt.Sprintf("status=%d", resp.StatusCode))
 			continue
 		}
-		seen[id] = struct{}{}
-		if info := LookupStaticModelInfo(id); info != nil {
-			models = append(models, cloneModelInfo(info))
+		var out openAIModelsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			resp.Body.Close()
+			errs = append(errs, err.Error())
 			continue
 		}
-		models = append(models, &ModelInfo{ID: id, Object: "model", Created: time.Now().Unix(), OwnedBy: src.Name, Type: "openai"})
+		resp.Body.Close()
+		for _, item := range out.Data {
+			id := strings.TrimSpace(item.ID)
+			if id == "" {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			if info := LookupStaticModelInfo(id); info != nil {
+				merged = append(merged, cloneModelInfo(info))
+				continue
+			}
+			merged = append(merged, &ModelInfo{ID: id, Object: "model", Created: time.Now().Unix(), OwnedBy: src.Name, Type: "openai"})
+		}
 	}
-	return models, nil
+	if len(merged) == 0 && len(errs) > 0 {
+		return nil, fmt.Errorf("discover models failed for all keys: %s", strings.Join(errs, "; "))
+	}
+	return merged, nil
 }
