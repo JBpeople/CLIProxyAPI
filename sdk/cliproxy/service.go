@@ -552,6 +552,8 @@ func (s *Service) Run(ctx context.Context) error {
 		s.hooks.OnBeforeStart(s.cfg)
 	}
 
+	SetGlobalModelRegistryHook(&serviceModelRegistryHook{service: s})
+
 	// Register callback for startup and periodic model catalog refresh.
 	// When remote model definitions change, re-register models for affected providers.
 	// This intentionally rebuilds per-auth model availability from the latest catalog
@@ -766,6 +768,52 @@ func (s *Service) Shutdown(ctx context.Context) error {
 		usage.StopDefault()
 	})
 	return shutdownErr
+}
+
+type serviceModelRegistryHook struct {
+	service *Service
+}
+
+func (h *serviceModelRegistryHook) OnModelsRegistered(ctx context.Context, provider, clientID string, models []*registry.ModelInfo) {
+	if h == nil || h.service == nil {
+		return
+	}
+	h.service.refreshCompatibilityAuthsForSource(clientID)
+}
+
+func (h *serviceModelRegistryHook) OnModelsUnregistered(ctx context.Context, provider, clientID string) {
+	if h == nil || h.service == nil {
+		return
+	}
+	h.service.refreshCompatibilityAuthsForSource(clientID)
+}
+
+func (s *Service) refreshCompatibilityAuthsForSource(clientID string) {
+	if s == nil || s.coreManager == nil {
+		return
+	}
+	const prefix = "upstream-sync:"
+	if !strings.HasPrefix(clientID, prefix) {
+		return
+	}
+	sourceName := strings.TrimSpace(strings.TrimPrefix(clientID, prefix))
+	if sourceName == "" {
+		return
+	}
+	for _, item := range s.coreManager.List() {
+		if item == nil || item.ID == "" {
+			continue
+		}
+		auth, ok := s.coreManager.GetByID(item.ID)
+		if !ok || auth == nil || auth.Disabled {
+			continue
+		}
+		_, compatName, compat := openAICompatInfoFromAuth(auth)
+		if !compat || !strings.EqualFold(strings.TrimSpace(compatName), sourceName) {
+			continue
+		}
+		s.refreshModelRegistrationForAuth(auth)
+	}
 }
 
 func (s *Service) ensureAuthDir() error {
