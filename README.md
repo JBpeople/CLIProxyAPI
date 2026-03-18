@@ -1,46 +1,56 @@
-# CLIProxyAPI (JBpeople fork)
+# CLIProxyAPI（JBpeople fork）
 
-A practical fork of CLIProxyAPI focused on making **OpenAI-compatible upstream providers** easier to manage and actually usable without manually maintaining long model lists.
+这是一个基于 CLIProxyAPI 的实用型分支，重点解决 **OpenAI-compatible 上游提供商** 的模型维护问题：
 
-## What this fork changes
+> 不想手工维护一长串 `models:`，而是希望从上游 `/v1/models` 自动发现模型，并能直接参与调用链路。
 
-This fork adds a complete model discovery flow for `openai-compatibility` providers:
+## 这个 fork 做了什么
 
-- **Automatic model discovery** from upstream `/v1/models`
-- **Multi-key aggregation**: all `api-key-entries` are queried, results are merged and deduplicated
-- **Model Sync management API**
+这个 fork 主要增加了针对 `openai-compatibility` 提供商的完整模型发现流程：
+
+- **自动发现模型**：从上游 `/v1/models` 拉取模型列表
+- **多 Key 聚合**：遍历所有 `api-key-entries`，合并并去重
+- **模型同步管理接口**
   - `GET /v0/management/model-sync/status`
   - `POST /v0/management/model-sync/run`
-- **Dynamic model registration into auth/routing**
-  - discovered models can participate in auth selection
-  - providers can work even when `openai-compatibility[].models` is empty
-- **OpenAI-compatible provider UI support**
-  - `Auto discover models` toggle in the provider edit page
-- **Management panel additions**
-  - dedicated Model Sync page
-  - manual sync trigger
+- **动态模型接入 auth / 路由**
+  - 即使 `openai-compatibility[].models` 为空
+  - 只要同步发现成功，模型也可以参与 auth 选择与调用
+- **OpenAI-compatible 提供商配置页增强**
+  - 增加“自动发现模型”开关
+- **管理面板增强**
+  - 新增“模型同步”页面
+  - 支持手动触发同步
 
-## Why this fork exists
+## 为什么要做这个 fork
 
-Upstream OpenAI-compatible providers change models frequently.
-Manually maintaining every provider's `models:` section is tedious and error-prone.
+很多 OpenAI-compatible 上游的模型列表变化很快。
+如果每次都手动维护：
 
-This fork aims to make the workflow closer to this:
+```yaml
+models:
+  - name: ...
+  - name: ...
+```
 
-1. add an OpenAI-compatible provider
-2. enable auto-discovery
-3. sync models from `/v1/models`
-4. let discovered models participate in routing directly
+会非常烦，而且容易漏。
 
-## Current behavior
+这个 fork 想实现的就是更顺手的流程：
 
-- sync once on startup
-- sync every **30 minutes** by default
-- manual sync is available from the management page/API
-- manually configured `models` still take priority when present
-- when `models: []` is empty, discovered models are used as fallback for auth registration
+1. 添加一个 OpenAI-compatible 提供商
+2. 打开“自动发现模型”
+3. 从 `/v1/models` 自动同步
+4. 同步出来的模型可以直接参与调用
 
-## OpenAI-compatible config example
+## 当前行为
+
+- 启动时立即同步一次
+- 默认每 **30 分钟** 自动同步一次
+- 可通过管理页面 / API 手动同步
+- 如果手工配置了 `models`，仍然优先使用手工配置
+- 如果 `models: []` 为空，则回退使用自动发现的模型来完成 auth 注册
+
+## OpenAI-compatible 配置示例
 
 ```yaml
 openai-compatibility:
@@ -53,26 +63,26 @@ openai-compatibility:
     models: []
 ```
 
-## Management API added by this fork
+## 这个 fork 新增的管理接口
 
 ```text
 GET  /v0/management/model-sync/status
 POST /v0/management/model-sync/run
 ```
 
-## Management panel companion
+## 配套前端仓库
 
-The companion frontend fork is here:
+这个 fork 对应的前端面板在这里：
 
 - https://github.com/JBpeople/Cli-Proxy-API-Management-Center
 
-It adds:
+前端增强包括：
 
-- Model Sync page
-- Chinese UI adjustments
-- auto-discover toggle in the OpenAI-compatible provider editor
+- 中文“模型同步”页面
+- OpenAI-compatible 编辑页里的“自动发现模型”开关
+- 手动同步按钮
 
-## Build
+## 编译
 
 ### Linux
 ```bash
@@ -84,11 +94,11 @@ go build -o build/cliproxyapi ./cmd/server
 GOOS=windows GOARCH=amd64 go build -o build/cliproxyapi.exe ./cmd/server
 ```
 
-## Status
+## 当前定位
 
-This fork is intended for practical self-hosted use.
-It keeps upstream CLIProxyAPI as the base, while focusing on better OpenAI-compatible provider ergonomics.
+这个 fork 面向的是“自己部署自己用”的实用场景。
+保留 upstream CLIProxyAPI 作为基础，同时重点增强 OpenAI-compatible 提供商的可维护性与可用性。
 
-## License
+## 许可证
 
 MIT
