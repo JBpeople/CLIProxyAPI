@@ -131,6 +131,13 @@ func (s *UpstreamModelSyncer) GetStatus() map[string]*UpstreamSyncStatus {
 	return out
 }
 
+func (s *UpstreamModelSyncer) TriggerSync() {
+	select {
+	case s.triggerCh <- struct{}{}:
+	default:
+	}
+}
+
 func (s *UpstreamModelSyncer) syncAll(ctx context.Context) {
 	s.mu.RLock()
 	sources := append([]UpstreamModelSource(nil), s.sources...)

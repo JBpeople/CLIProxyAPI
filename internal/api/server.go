@@ -495,6 +495,8 @@ func (s *Server) registerManagementRoutes() {
 	mgmt.Use(s.managementAvailabilityMiddleware(), s.mgmt.Middleware())
 	{
 		mgmt.GET("/usage", s.mgmt.GetUsageStatistics)
+		mgmt.GET("/model-sync/status", s.getModelSyncStatus)
+		mgmt.POST("/model-sync/run", s.runModelSync)
 		mgmt.GET("/usage/export", s.mgmt.ExportUsageStatistics)
 		mgmt.POST("/usage/import", s.mgmt.ImportUsageStatistics)
 		mgmt.GET("/config", s.mgmt.GetConfig)
@@ -1033,6 +1035,23 @@ func (s *Server) SetWebsocketAuthChangeHandler(fn func(bool, bool)) {
 }
 
 // (management handlers moved to internal/api/handlers/management)
+
+func (s *Server) getModelSyncStatus(c *gin.Context) {
+	if s == nil || s.upstreamModelSyncer == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model sync not enabled"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"sources": s.upstreamModelSyncer.GetStatus()})
+}
+
+func (s *Server) runModelSync(c *gin.Context) {
+	if s == nil || s.upstreamModelSyncer == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model sync not enabled"})
+		return
+	}
+	s.upstreamModelSyncer.TriggerSync()
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "model sync triggered"})
+}
 
 // AuthMiddleware returns a Gin middleware handler that authenticates requests
 // using the configured authentication providers. When no providers are available,
