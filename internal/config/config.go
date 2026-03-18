@@ -486,6 +486,9 @@ type OpenAICompatibility struct {
 
 	// Headers optionally adds extra HTTP headers for requests sent to this provider.
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+
+	// AutoDiscoverModels enables periodic syncing from the provider's /v1/models endpoint.
+	AutoDiscoverModels bool `yaml:"auto-discover-models,omitempty" json:"auto-discover-models,omitempty"`
 }
 
 // OpenAICompatibilityAPIKey represents an API key configuration with optional proxy setting.

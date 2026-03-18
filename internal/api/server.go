@@ -27,6 +27,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
@@ -160,6 +161,9 @@ type Server struct {
 
 	// ampModule is the Amp routing module for model mapping hot-reload
 	ampModule *ampmodule.AmpModule
+
+	// upstreamModelSyncer periodically discovers models from configured upstream providers.
+	upstreamModelSyncer *registry.UpstreamModelSyncer
 
 	// managementRoutesRegistered tracks whether the management routes have been attached to the engine.
 	managementRoutesRegistered atomic.Bool
@@ -304,6 +308,10 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	if optionState.keepAliveEnabled {
 		s.enableKeepAlive(optionState.keepAliveTimeout, optionState.keepAliveOnTimeout)
 	}
+
+	s.upstreamModelSyncer = registry.NewUpstreamModelSyncer(registry.GetGlobalRegistry(), 30*time.Minute)
+	s.upstreamModelSyncer.UpdateSources(registry.BuildUpstreamSourcesFromConfig(cfg))
+	s.upstreamModelSyncer.Start(context.Background())
 
 	// Create HTTP server
 	s.server = &http.Server{
@@ -966,6 +974,10 @@ func (s *Server) UpdateClients(cfg *config.Config) {
 	s.oldConfigYaml, _ = yaml.Marshal(cfg)
 
 	s.handlers.UpdateClients(&cfg.SDKConfig)
+
+	if s.upstreamModelSyncer != nil {
+		s.upstreamModelSyncer.UpdateSources(registry.BuildUpstreamSourcesFromConfig(cfg))
+	}
 
 	if s.mgmt != nil {
 		s.mgmt.SetConfig(cfg)
