@@ -1,5 +1,7 @@
 # CLIProxyAPI（JBpeople fork）
 
+![模型同步页面](./assets/model-sync-page.jpg)
+
 这是一个基于 CLIProxyAPI 的实用型分支，重点解决 **OpenAI-compatible 上游提供商** 的模型维护问题：
 
 > 不想手工维护一长串 `models:`，而是希望从上游 `/v1/models` 自动发现模型，并能直接参与调用链路。
@@ -103,8 +105,4 @@ GOOS=windows GOARCH=amd64 go build -o build/cliproxyapi.exe ./cmd/server
 
 MIT
 
-
-## 配套前端截图
-
-![模型同步页面](./assets/model-sync-page.jpg)
 
