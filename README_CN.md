@@ -56,6 +56,40 @@ GLM CODING PLAN 是专为AI编码打造的订阅套餐，每月最低仅需20元
 - 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
 - 可复用的 Go SDK（见 `docs/sdk-usage_CN.md`）
 
+## Fork 增强功能
+
+这个 fork 额外增加了面向 OpenAI 兼容上游的实用能力：
+
+- **自动模型发现**：从配置的 OpenAI-compatible 上游 `/v1/models` 自动拉取模型列表
+- **多 Key 聚合发现**：遍历所有 `api-key-entries`，合并结果并按模型 ID 去重
+- **模型同步管理接口**：
+  - `GET /v0/management/model-sync/status`
+  - `POST /v0/management/model-sync/run`
+- **动态模型接入调用链**：即使 `openai-compatibility[].models` 为空，只要已同步发现模型，也能参与 auth 注册与路由选择
+- **管理面板增强**：
+  - 新增中文 **模型同步** 页面
+  - 支持手动触发同步
+  - 在 OpenAI-compatible 提供商编辑页增加 **自动发现模型** 开关
+
+### OpenAI-compatible 配置示例
+
+```yaml
+openai-compatibility:
+  - name: local-relay
+    base-url: http://127.0.0.1:8317/v1
+    auto-discover-models: true
+    api-key-entries:
+      - api-key: your-key-1
+      - api-key: your-key-2
+    models: []
+```
+
+当前行为：
+- 启动时立即同步一次
+- 默认每 **30 分钟** 自动刷新一次
+- 会合并所有 API Key 发现到的模型
+- 如果手工配置了 `models`，仍然优先使用手工配置
+
 ## 新手入门
 
 CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-for.me/cn/)

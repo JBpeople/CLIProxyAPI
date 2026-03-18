@@ -56,6 +56,40 @@ Get 10% OFF GLM CODING PLAN：https://z.ai/subscribe?ic=8JVLJQFSKB
 - OpenAI-compatible upstream providers via config (e.g., OpenRouter)
 - Reusable Go SDK for embedding the proxy (see `docs/sdk-usage.md`)
 
+## Fork Additions
+
+This fork adds practical improvements for OpenAI-compatible upstream providers:
+
+- **Automatic model discovery** from configured OpenAI-compatible upstreams via `/v1/models`
+- **Multi-key discovery merge**: queries all configured API keys, unions results, and de-duplicates by model id
+- **Model Sync management API**:
+  - `GET /v0/management/model-sync/status`
+  - `POST /v0/management/model-sync/run`
+- **Dynamic model sync integration into auth selection**: discovered models can participate in auth registration and routing even when `openai-compatibility[].models` is empty
+- **Management panel enhancements**:
+  - Chinese **模型同步** page
+  - manual sync button
+  - `自动发现模型` toggle in the OpenAI-compatible provider edit page
+
+### OpenAI-compatible config example
+
+```yaml
+openai-compatibility:
+  - name: local-relay
+    base-url: http://127.0.0.1:8317/v1
+    auto-discover-models: true
+    api-key-entries:
+      - api-key: your-key-1
+      - api-key: your-key-2
+    models: []
+```
+
+Behavior:
+- sync once on startup
+- then refresh every **30 minutes** by default
+- discovered models are merged across all API keys
+- manually configured `models` still take priority when present
+
 ## Getting Started
 
 CLIProxyAPI Guides: [https://help.router-for.me/](https://help.router-for.me/)
